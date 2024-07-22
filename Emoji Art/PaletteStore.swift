@@ -22,8 +22,11 @@ extension UserDefaults {
     }
 }
 
-class PaletteStore: ObservableObject {
+
+class PaletteStore: ObservableObject, Identifiable {
     let name: String
+    
+    var id: String { name }
     
     private var userDefaultsKey: String { "PaletteStore:" + name }
     
@@ -47,14 +50,31 @@ class PaletteStore: ObservableObject {
                 palettes = [Palette(name: "Warning", emojis: "⚠️")]
             }
         }
+        
+        observer = NotificationCenter.default.addObserver(
+            forName: UserDefaults.didChangeNotification,
+            object: nil,
+            queue: .main) { [weak self] notification in
+                self?.objectWillChange.send()
+            }
     }
-
+    
+    @State private var observer: NSObjectProtocol?
+    
+    deinit {
+        if let observer {
+            NotificationCenter.default.removeObserver(observer)
+        }
+    }
+    
     @Published private var _cursorIndex = 0
     
     var cursorIndex: Int {
         get { boundsCheckedPaletteIndex(_cursorIndex) }
         set { _cursorIndex = boundsCheckedPaletteIndex(newValue) }
     }
+    
+    
     private func boundsCheckedPaletteIndex(_ index: Int) -> Int {
         var index = index % palettes.count
         if index < 0 {
@@ -63,7 +83,9 @@ class PaletteStore: ObservableObject {
         return index
     }
     
-    func insert(_ palette: Palette, at insertionIndex: Int? = nil) { // "at" default is cursorIndex
+    // MARK: - Adding Palettes
+    
+    func insert(_ palette: Palette, at insertionIndex: Int? = nil) {
         let insertionIndex = boundsCheckedPaletteIndex(insertionIndex ?? cursorIndex)
         if let index = palettes.firstIndex(where: { $0.id == palette.id }) {
             palettes.move(fromOffsets: IndexSet([index]), toOffset: insertionIndex)
@@ -77,8 +99,9 @@ class PaletteStore: ObservableObject {
         insert(Palette(name: name, emojis: emojis), at: index)
     }
     
-    func append(_ palette: Palette) { // at end of palettes
+    func append(_ palette: Palette) {
         if let index = palettes.firstIndex(where: { $0.id == palette.id }) {
+            var modifiedPalettes = palettes
             if palettes.count == 1 {
                 palettes = [palette]
             } else {
@@ -92,5 +115,15 @@ class PaletteStore: ObservableObject {
     
     func append(name: String, emojis: String) {
         append(Palette(name: name, emojis: emojis))
+    }
+}
+
+extension PaletteStore: Hashable {
+    static func == (lhs: PaletteStore, rhs: PaletteStore) -> Bool {
+        lhs.name == rhs.name
+    }
+    
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(name)
     }
 }
