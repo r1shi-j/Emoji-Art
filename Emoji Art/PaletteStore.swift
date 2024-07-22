@@ -55,7 +55,7 @@ class PaletteStore: ObservableObject, Identifiable {
             forName: UserDefaults.didChangeNotification,
             object: nil,
             queue: .main) { [weak self] notification in
-                self!.objectWillChange.send()
+                self?.objectWillChange.send()
             }
     }
     
